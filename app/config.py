@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/app.db"
     default_interval_hours: int = 24
-    user_agent: str = "FuckCompetitors/0.1 (+https://github.com/cowseal/fuck-competitors)"
+    user_agent: str = "FuckCompetitors/0.1 (+https://github.com/tod-zhang/fuck-competitors)"
     request_timeout: int = 20
     respect_robots: bool = True    # obey robots.txt; turn off only if a target's robots wrongly blocks its sitemap
     crawl_delay_seconds: float = 1.0   # min spacing between requests to the same host (robots Crawl-delay can raise it)
