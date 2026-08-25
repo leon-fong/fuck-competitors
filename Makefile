@@ -10,11 +10,11 @@ COMPOSE := DOCKER_BUILDKIT=0 COMPOSE_BAKE=false docker compose -p $(PROJECT)
 
 .PHONY: up down restart logs ps build
 
-# Build (if needed) and start app (:9527) + mcp (:9528) in the background.
+# Build (if needed) and start app (:9527) in the background.
 up:
 	$(COMPOSE) up -d --build
 
-# Stop and remove the containers; the fc-data volume (your DB) is kept.
+# Stop and remove the container; the database in ./data is kept.
 down:
 	$(COMPOSE) down
 
@@ -22,7 +22,7 @@ down:
 restart:
 	$(COMPOSE) up -d --build
 
-# Follow logs from both services.
+# Follow app logs.
 logs:
 	$(COMPOSE) logs -f
 
