@@ -56,7 +56,7 @@ def test_diff_add_remove_suspected():
     changes = {(c.type, c.url) for c in diff_pages(old, new)}
 
     assert ("added", "https://x.com/d") in changes      # /d is new
-    assert ("removed", "https://x.com/c") in changes     # /c dropped from sitemap
+    assert ("sitemap_removed", "https://x.com/c") in changes  # /c dropped from sitemap
     assert ("suspected", "https://x.com/a") in changes   # /a lastmod 06-01 -> 06-09
     # /b has no lastmod and is unchanged -> must NOT produce a suspected change
     assert not any(c.url == "https://x.com/b" for c in diff_pages(old, new))

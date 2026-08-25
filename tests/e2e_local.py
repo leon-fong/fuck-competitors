@@ -67,21 +67,23 @@ def main():
     # First crawl = silent baseline: 3 pages tracked, but NO change records logged.
     r1 = run_check(cid)
     assert r1["baseline"] is True and r1["tracked"] == 3, r1
-    assert r1["added"] == 0 and r1["removed"] == 0 and r1["suspected"] == 0, r1
+    assert r1["added"] == 0 and r1["sitemap_removed"] == 0 and r1["suspected"] == 0, r1
 
     CURRENT[0] = V2
     r2 = run_check(cid)
     assert r2["baseline"] is False, r2
-    assert (r2["added"], r2["removed"], r2["suspected"]) == (1, 1, 1), r2
+    assert (r2["added"], r2["sitemap_removed"], r2["suspected"]) == (1, 1, 1), r2
 
     with Session(engine) as s:
         active = s.exec(select(Page).where(Page.status == "active")).all()
-        removed = s.exec(select(Page).where(Page.status == "removed")).all()
+        removed = s.exec(select(Page).where(Page.status == "sitemap_removed")).all()
         change_types = sorted(c.type for c in s.exec(select(Change)).all())
     assert sorted(p.url for p in active) == ["http://h/a", "http://h/b", "http://h/d"], active
     assert [p.url for p in removed] == ["http://h/c"], removed
+    assert next(p for p in active if p.url == "http://h/a").needs_detail_check is True  # lastmod changed
+    assert next(p for p in active if p.url == "http://h/d").needs_detail_check is True  # newly added
     # baseline logs nothing; only run2's real deltas are recorded: 1 added + 1 removed + 1 suspected
-    assert change_types == ["added", "removed", "suspected"], change_types
+    assert change_types == ["added", "sitemap_removed", "suspected"], change_types
 
     server.shutdown()
     os.unlink(_tmp.name)

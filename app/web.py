@@ -8,9 +8,11 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from . import viewmodels as vm
+from .config import settings
 from .db import engine
 from .models import Change, Competitor, Page, Snapshot
 from .scheduler import check_now, schedule_competitor, unschedule_competitor
@@ -39,17 +41,24 @@ def index(request: Request):
         if page_ids:
             page_by_id = {p.id: p for p in s.exec(select(Page).where(Page.id.in_(page_ids))).all()}
 
-        active_pages = s.exec(select(Page).where(Page.status == "active")).all()
+        active_by_comp = dict(
+            s.exec(
+                select(Page.competitor_id, func.count(Page.id))
+                .where(Page.status == "active")
+                .group_by(Page.competitor_id)
+            ).all()
+        )
+        active_page_count = sum(active_by_comp.values())
         today = utcnow().date()
         week_ago = utcnow() - timedelta(days=7)
         recent = [ch for ch in changes if ch.detected_at >= week_ago]
 
-        active_by_comp: dict[int, int] = {}
-        for p in active_pages:
-            active_by_comp[p.competitor_id] = active_by_comp.get(p.competitor_id, 0) + 1
         week_by_comp: dict[int, int] = {}
+        high_impact_by_comp: dict[int, int] = {}
         for ch in recent:
             week_by_comp[ch.competitor_id] = week_by_comp.get(ch.competitor_id, 0) + 1
+            if int((ch.detail or {}).get("importance_score", 0)) >= 70:
+                high_impact_by_comp[ch.competitor_id] = high_impact_by_comp.get(ch.competitor_id, 0) + 1
 
         sites = [
             {
@@ -60,6 +69,7 @@ def index(request: Request):
                 "host": urlparse(c.sitemap_url).netloc or c.sitemap_url,
                 "tracked": active_by_comp.get(c.id, 0),
                 "week_changes": week_by_comp.get(c.id, 0),
+                "week_high_impact": high_impact_by_comp.get(c.id, 0),
                 "freq": vm.interval_label(c.check_interval_hours),
                 "detailed": c.detailed_on,
                 "favicon": vm.favicon_url_for(c),
@@ -73,11 +83,13 @@ def index(request: Request):
             "has_data": bool(competitors),
             "greet_date": _greet_date(today),
             "recent_count": len(recent),
-            "stats": vm.overview_stats(recent, len(competitors), len(active_pages)),
+            "stats": vm.overview_stats(recent, len(competitors), active_page_count),
             "overview_groups": vm.group_changes(changes[:40], comp_by_id, page_by_id, today),
             "timeline_groups": vm.group_changes(changes, comp_by_id, page_by_id, today),
             "sites": sites,
             "nav_changes": len(changes),
+            "default_interval_hours": settings.default_interval_hours,
+            "default_interval_label": vm.interval_label(settings.default_interval_hours),
         }
         return templates.TemplateResponse(request, "index.html", ctx)
 
@@ -98,11 +110,11 @@ def change_detail(change_id: int, request: Request):
 def create_competitor(
     name: str = Form(...),
     sitemap_url: str = Form(...),
-    interval_hours: int = Form(24),
+    interval_hours: int = Form(settings.default_interval_hours),
     detailed: str = Form(None),
 ):
     with Session(engine) as s:
-        count = len(s.exec(select(Competitor)).all())
+        count = s.exec(select(func.count(Competitor.id))).one()
         competitor = Competitor(
             name=name.strip(),
             sitemap_url=sitemap_url.strip(),

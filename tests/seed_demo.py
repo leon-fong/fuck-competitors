@@ -50,7 +50,9 @@ def main():
             return p
 
         def change(c, p, type_, when, detail=None):
-            s.add(Change(competitor_id=c.id, page_id=p.id, type=type_, detected_at=when, detail=detail or {}))
+            default_scores = {"added": 20, "sitemap_removed": 20, "restored": 25, "suspected": 5}
+            payload = detail or {"importance_score": default_scores.get(type_, 0)}
+            s.add(Change(competitor_id=c.id, page_id=p.id, type=type_, detected_at=when, detail=payload))
 
         vercel = comp("Vercel", "#111111", "vercel.com", detailed=True, interval=6)
         linear = comp("Linear", "#5E6AD2", "linear.app", interval=12)
@@ -68,20 +70,20 @@ def main():
         old = "Pro 套餐 · $20 / 每位成员 / 月\n无限项目 · 高级分析"
         new = "Pro 套餐 · $25 / 每位成员 / 月\n无限项目 · 高级分析\n联系销售 · 企业版"
         s.add(Snapshot(page_id=v_pricing.id, content_hash="x", title="Pricing – Vercel", content_text=new))
-        change(vercel, v_pricing, "modified", TODAY, {"title": "Pricing – Vercel", "hunks": make_hunks(old, new)})
+        change(vercel, v_pricing, "modified", TODAY, {"title": "Pricing – Vercel", "seo_changes": {}, "content_changed": True, "importance_score": 30, "hunks": make_hunks(old, new)})
 
-        # Stripe — today: removed
-        change(stripe, page(stripe, "/radar/legacy-rules", status="removed"), "removed", NOW.replace(hour=1, minute=40))
+        # Stripe — today: removed from sitemap (the HTTP page may still exist)
+        change(stripe, page(stripe, "/radar/legacy-rules", status="sitemap_removed"), "sitemap_removed", NOW.replace(hour=1, minute=40))
 
         # Notion — today: suspected (lastmod changed)
         change(notion, page(notion, "/pricing", lastmod="2026-06-09"), "suspected", NOW.replace(hour=11, minute=20),
-               {"lastmod_from": "2026-06-05", "lastmod_to": "2026-06-09"})
+               {"lastmod_from": "2026-06-05", "lastmod_to": "2026-06-09", "importance_score": 5})
 
         # Figma — yesterday: hero modified + pricing modified + blog added
         f_home = page(figma, "/")
         change(figma, f_home, "modified", Yday.replace(hour=19, minute=27),
-               {"title": "Figma", "hunks": make_hunks("Nothing great is made alone", "Design and build together")})
-        change(figma, page(figma, "/pricing"), "modified", Yday.replace(hour=19, minute=20), {"title": "Pricing"})
+               {"title": "Figma", "seo_changes": {}, "content_changed": True, "importance_score": 30, "hunks": make_hunks("Nothing great is made alone", "Design and build together")})
+        change(figma, page(figma, "/pricing"), "modified", Yday.replace(hour=19, minute=20), {"title": "Pricing", "seo_changes": {"title": {"from": "Plans", "to": "Pricing"}}, "content_changed": False, "importance_score": 75, "hunks": []})
         change(figma, page(figma, "/blog/config-2026-recap"), "added", Yday.replace(hour=18, minute=0))
 
         # Linear — yesterday: 2 added

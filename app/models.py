@@ -26,7 +26,7 @@ class Page(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     competitor_id: int = Field(foreign_key="competitor.id", index=True)
     url: str = Field(index=True)
-    status: str = "active"               # active | removed
+    status: str = "active"               # active | sitemap_removed
     lastmod: Optional[str] = None        # from sitemap <lastmod>, if present
     is_pinned: bool = False              # deprecated/unused — pinning was removed; detailed monitoring now covers all pages
     latest_content_hash: Optional[str] = None
@@ -34,13 +34,15 @@ class Page(SQLModel, table=True):
     last_modified: Optional[str] = None  # so an unchanged page answers 304 instead of re-sending its whole body
     first_seen_at: datetime = Field(default_factory=utcnow)
     last_seen_at: datetime = Field(default_factory=utcnow)
+    last_detailed_at: Optional[datetime] = None
+    needs_detail_check: bool = False
 
 
 class Change(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     competitor_id: int = Field(foreign_key="competitor.id", index=True)
     page_id: Optional[int] = Field(default=None, foreign_key="page.id")
-    type: str                            # added | removed | modified | suspected
+    type: str                            # added | sitemap_removed | restored | modified | suspected
     detected_at: datetime = Field(default_factory=utcnow, index=True)
     detail: dict = Field(default_factory=dict, sa_column=Column(JSON))
     is_read: bool = False
@@ -53,4 +55,10 @@ class Snapshot(SQLModel, table=True):
     captured_at: datetime = Field(default_factory=utcnow)
     content_hash: str
     title: Optional[str] = None
+    meta_description: Optional[str] = None
+    h1: Optional[str] = None
+    canonical: Optional[str] = None
+    robots: Optional[str] = None
+    status_code: Optional[int] = None
+    final_url: Optional[str] = None
     content_text: str = ""

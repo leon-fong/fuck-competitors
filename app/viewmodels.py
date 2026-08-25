@@ -8,8 +8,20 @@ from urllib.parse import urlparse
 from .models import Change, Competitor, Page
 
 WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-GLYPH = {"added": "＋", "removed": "－", "modified": "±", "suspected": "±"}
-GTYPE = {"added": "add", "removed": "del", "modified": "mod", "suspected": "susp"}
+GLYPH = {
+    "added": "＋",
+    "sitemap_removed": "－",
+    "restored": "↺",
+    "modified": "±",
+    "suspected": "±",
+}
+GTYPE = {
+    "added": "add",
+    "sitemap_removed": "del",
+    "restored": "add",
+    "modified": "mod",
+    "suspected": "susp",
+}
 
 
 def monogram(name: str) -> str:
@@ -55,25 +67,69 @@ def day_label(d: date, today: date) -> str:
 
 
 def _note(change: Change) -> str:
+    if change.type == "added":
+        return "加入 Sitemap"
     if change.type == "suspected":
         det = change.detail or {}
         return f"lastmod {det.get('lastmod_from') or '—'} → {det.get('lastmod_to') or '—'}，可能已修改"
     if change.type == "modified":
-        return "正文内容变化"
-    if change.type == "removed":
-        return "页面下线"
+        detail = change.detail or {}
+        fields = list((detail.get("seo_changes") or {}).keys())
+        if detail.get("content_changed"):
+            fields.append("content")
+        return "、".join(field.upper() for field in fields) or "页面信息变化"
+    if change.type == "sitemap_removed":
+        return "移出 Sitemap"
+    if change.type == "restored":
+        return "重新加入 Sitemap"
     return ""
+
+
+def importance_label(score: int) -> str:
+    if score >= 90:
+        return "Critical"
+    if score >= 70:
+        return "High"
+    if score >= 40:
+        return "Medium"
+    return "Low"
+
+
+def importance_band(score: int) -> str:
+    return importance_label(score).lower()
+
+
+def _seo_badges(change: Change) -> list[str]:
+    if change.type != "modified":
+        return []
+    detail = change.detail or {}
+    changed = detail.get("seo_changes") or {}
+    badges = []
+    for field, label in (
+        ("title", "TITLE"),
+        ("h1", "H1"),
+        ("meta_description", "DESCRIPTION"),
+        ("canonical", "CANONICAL"),
+        ("robots", "ROBOTS"),
+        ("final_url", "REDIRECT"),
+    ):
+        if field in changed:
+            badges.append(label)
+    if detail.get("content_changed"):
+        badges.append("CONTENT")
+    return badges
 
 
 def _dominant(summary: dict) -> str:
     if summary["modified"] or summary["suspected"]:
         return "mod"
-    if summary["removed"]:
+    if summary["sitemap_removed"]:
         return "del"
     return "add"
 
 
 def _row_vm(change: Change, page: Page | None) -> dict:
+    score = int((change.detail or {}).get("importance_score", 0))
     return {
         "id": change.id,
         "type": change.type,
@@ -82,6 +138,10 @@ def _row_vm(change: Change, page: Page | None) -> dict:
         "path": url_path(page.url) if page else "—",
         "note": _note(change),
         "suspected": change.type == "suspected",
+        "importance_score": score,
+        "importance_label": importance_label(score),
+        "importance_band": importance_band(score),
+        "seo_badges": _seo_badges(change),
     }
 
 
@@ -103,7 +163,13 @@ def group_changes(
         day_total = 0
         for cid, rows in by_comp.items():
             comp = comp_by_id.get(cid)
-            summary = {"added": 0, "removed": 0, "modified": 0, "suspected": 0}
+            summary = {
+                "added": 0,
+                "sitemap_removed": 0,
+                "restored": 0,
+                "modified": 0,
+                "suspected": 0,
+            }
             row_vms = []
             for ch in rows:
                 summary[ch.type] += 1
@@ -129,21 +195,24 @@ def group_changes(
 
 def overview_stats(recent: list[Change], site_count: int, page_count: int) -> dict:
     added = sum(1 for c in recent if c.type == "added")
-    removed = sum(1 for c in recent if c.type == "removed")
+    removed = sum(1 for c in recent if c.type == "sitemap_removed")
+    restored = sum(1 for c in recent if c.type == "restored")
     modified = sum(1 for c in recent if c.type in ("modified", "suspected"))
     return {
         "added": added,
         "removed": removed,
+        "restored": restored,
         "modified": modified,
         "sites": site_count,
         "pages": page_count,
-        "total": added + removed + modified,
+        "total": added + removed + restored + modified,
     }
 
 
 def build_detail_vm(change: Change, page: Page | None, competitor: Competitor | None) -> dict:
     dt = change.detected_at.strftime("%Y/%m/%d %H:%M")
     detail = change.detail or {}
+    importance_score = int(detail.get("importance_score", 0))
     vm = {
         "change_id": change.id,
         "page_id": page.id if page else None,
@@ -156,6 +225,8 @@ def build_detail_vm(change: Change, page: Page | None, competitor: Competitor | 
         "suspected": change.type == "suspected",
         "mode": "none",
         "meta": [],
+        "importance_score": importance_score,
+        "importance_label": importance_label(importance_score),
     }
 
     if change.type == "added":
@@ -163,16 +234,23 @@ def build_detail_vm(change: Change, page: Page | None, competitor: Competitor | 
         vm["mode"] = "newpage"
         vm["snapshot"] = {"title": detail.get("title") or "新加入 sitemap 的页面", "url": page.url if page else "#"}
         vm["meta"] = [("检测时间", dt), ("加入监控", page.first_seen_at.strftime("%Y-%m-%d") if page else "—")]
-    elif change.type == "removed":
-        vm["title"] = "页面已下线"
+    elif change.type == "sitemap_removed":
+        vm["title"] = "移出 Sitemap"
         vm["mode"] = "gone"
         vm["snapshot"] = {"title": "已从 sitemap 移除", "url": page.url if page else "#"}
-        vm["meta"] = [("检测时间", dt), ("状态", "已移除"), ("最后可见", page.last_seen_at.strftime("%Y-%m-%d") if page else "—")]
+        vm["meta"] = [("检测时间", dt), ("状态", "移出 Sitemap"), ("最后可见", page.last_seen_at.strftime("%Y-%m-%d") if page else "—")]
+    elif change.type == "restored":
+        vm["title"] = "重新加入 Sitemap"
+        vm["mode"] = "restored"
+        vm["snapshot"] = {"title": "URL 已恢复监控", "url": page.url if page else "#"}
+        vm["meta"] = [("检测时间", dt), ("状态", "已恢复"), ("首次发现", page.first_seen_at.strftime("%Y-%m-%d") if page else "—")]
     elif change.type == "modified":
         vm["title"] = detail.get("title") or "内容已修改"
         vm["mode"] = "diff"
         vm["hunks"] = detail.get("hunks", [])
-        vm["meta"] = [("检测时间", dt), ("监控深度", "详细"), ("正文标题", detail.get("title") or "—")]
+        vm["seo_changes"] = detail.get("seo_changes", {})
+        vm["content_changed"] = bool(detail.get("content_changed"))
+        vm["meta"] = [("检测时间", dt), ("重要程度", f"{vm['importance_label']} · {importance_score}"), ("监控深度", "详细")]
     elif change.type == "suspected":
         vm["title"] = "页面可能已修改"
         vm["mode"] = "suspected"

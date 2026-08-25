@@ -137,7 +137,7 @@
   .gly.add{background:var(--add-bg);color:var(--add)} .gly.del{background:var(--del-bg);color:var(--del)} .gly.mod{background:var(--mod-bg);color:var(--mod)}
   .change .path{font-family:"Noto Sans SC",monospace;color:var(--ink);background:#F3EEE2;padding:1px 7px;border-radius:6px;font-size:12.5px}
   .change .note{color:var(--ink-soft);font-size:12.5px}
-  .change.del .path{text-decoration:line-through;color:var(--ink-faint)}
+  .change.del .path{color:var(--ink-soft)}
 
   /* content diff block */
   .diff{margin:6px 0 2px 31px;border:1px dashed var(--mod);background:#FCF7EA;border-radius:10px;padding:9px 12px;font-size:12.5px}
@@ -359,7 +359,7 @@
           </svg>
         </div>
         <h2>开始 <span class="hl">盯死</span> 你的对手</h2>
-        <p class="lead">填入竞品的 sitemap 地址，<b>Fuck Competitors</b> 会定期巡检，把它网站上每一次页面的<b>新增</b>、<b>删减</b>、<b>修改</b>都记成一篇日志——像写观察日记一样，看懂对手的每一步动作。</p>
+        <p class="lead">填入竞品的 sitemap 地址，<b>Fuck Competitors</b> 会定期巡检，把 URL 的<b>新增</b>、<b>移出或恢复</b>和页面<b>修改</b>都记成一篇日志——像写观察日记一样，看懂对手的每一步动作。</p>
         <div class="ob-quick">
           <input placeholder="https://competitor.com/sitemap.xml">
           <button class="btn btn-primary" onclick="document.body.classList.remove('first-run');openModal()">开始监控 →</button>
@@ -373,7 +373,7 @@
         </div>
         <div class="ob-feat">
           <div class="fi" style="background:var(--del-bg);color:var(--del)">－</div>
-          <h4>追踪删减</h4>
+          <h4>追踪移出</h4>
           <p>页面悄悄下线，往往是产品线调整或策略转向的信号。</p>
         </div>
         <div class="ob-feat">
@@ -406,7 +406,7 @@
         <div class="stat c-del">
           <div class="tape" style="background:repeating-linear-gradient(45deg,#E8BCAE 0 6px,#F3D9CF 6px 12px)"></div>
           <div class="num">6</div>
-          <div class="lab">删减页面 <span class="trend" style="background:var(--del-bg);color:var(--del)">↓ 本周</span></div>
+          <div class="lab">移出 Sitemap <span class="trend" style="background:var(--del-bg);color:var(--del)">↓ 本周</span></div>
         </div>
         <div class="stat c-mod">
           <div class="tape" style="background:repeating-linear-gradient(45deg,#EBD49E 0 6px,#F4E6C2 6px 12px)"></div>
@@ -458,7 +458,7 @@
             <span class="time">01:40</span>
           </div>
           <div class="changes">
-            <div class="change del clickable" onclick="openDetail('stripe-del')"><span class="gly del">－</span><div><span class="path">/radar/legacy-rules</span> <span class="note">页面下线，疑似产品停更</span></div><span class="chev">›</span></div>
+            <div class="change del clickable" onclick="openDetail('stripe-del')"><span class="gly del">－</span><div><span class="path">/radar/legacy-rules</span> <span class="note">移出 Sitemap</span></div><span class="chev">›</span></div>
           </div>
         </div>
       </div>
@@ -508,7 +508,7 @@
         <span class="fchip" data-solo><span class="mono-sm" style="background:#F24E1E">F</span>Figma</span>
         <span class="sep"></span>
         <span class="fchip on" style="color:var(--add)">＋ 新增</span>
-        <span class="fchip on" style="color:var(--del)">－ 删减</span>
+        <span class="fchip on" style="color:var(--del)">－ 移出 Sitemap</span>
         <span class="fchip on" style="color:var(--mod)">± 修改</span>
       </div>
 
@@ -524,7 +524,7 @@
         <div class="entry has-del">
           <div class="entry-head"><span class="monogram" style="background:#635BFF;width:26px;height:26px;border-radius:8px">S</span><span class="name">Stripe</span><span class="url">/sitemap.xml</span><span class="summary-tags"><span class="tag del">－1</span></span><span class="time">01:40</span></div>
           <div class="changes">
-            <div class="change del clickable" onclick="openDetail('stripe-del')"><span class="gly del">－</span><div><span class="path">/radar/legacy-rules</span> <span class="note">页面下线</span></div><span class="chev">›</span></div>
+            <div class="change del clickable" onclick="openDetail('stripe-del')"><span class="gly del">－</span><div><span class="path">/radar/legacy-rules</span> <span class="note">移出 Sitemap</span></div><span class="chev">›</span></div>
           </div>
         </div>
         <div class="entry has-mod">
@@ -599,7 +599,7 @@
     <!-- ===== Watch pages view ===== -->
     <section class="view" id="view-watch">
       <div class="sec-head"><h3>重点监控页</h3><span class="ribbon">~ 钉选的高价值页面，逐字对比 ~</span><span class="line"></span></div>
-      <p class="empty-soft" style="margin:-6px 0 16px">Sitemap 只能看出页面增删；钉选的页面会抓取正文做内容 diff —— 定价、定位、客户案例的每一次改动都不放过。</p>
+      <p class="empty-soft" style="margin:-6px 0 16px">Sitemap 只能看出 URL 加入或移出；详细监控会从页面响应提取 SEO 字段并抓取正文做内容 diff。</p>
 
       <div class="entry has-mod">
         <div class="entry-head">
@@ -672,13 +672,13 @@
       <div class="chip-row"><span class="chip">每 6 小时</span><span class="chip on">每 12 小时</span><span class="chip">每天</span><span class="chip">每周</span></div>
     </div>
     <div class="field"><label>关注变更类型</label>
-      <div class="chip-row"><span class="chip on">＋ 新增</span><span class="chip on">－ 删减</span><span class="chip on">± 修改</span></div>
+      <div class="chip-row"><span class="chip on">＋ 新增</span><span class="chip on">－ 移出 Sitemap</span><span class="chip on">± 修改</span></div>
     </div>
     <div class="field"><label>监控深度</label>
       <div class="toggle-card">
         <div style="flex:1">
           <div class="t">详细内容监控 <span class="lvl deep" style="margin-left:4px">可选</span></div>
-          <div class="d">基础监控（默认）：检测页面新增 / 删减，并在 sitemap 带 <code style="background:#F3EEE2;padding:0 4px;border-radius:4px">lastmod</code> 时提示「疑似修改」——但看不到改了什么。开启后抓取正文，逐行对比定价、文案等<b>具体</b>改动，更耗资源，建议只对重点页开启。</div>
+          <div class="d">基础监控（默认）：检测 URL 加入 / 移出 / 恢复，并在 sitemap 带 <code style="background:#F3EEE2;padding:0 4px;border-radius:4px">lastmod</code> 时提示「疑似修改」——但看不到改了什么。开启后从同一次 HTML 下载中对比 SEO 字段和正文。</div>
         </div>
         <label class="switch"><input type="checkbox"><span class="track"></span></label>
       </div>
@@ -708,7 +708,7 @@
   function closeModal(){document.getElementById('scrim').classList.remove('open')}
 
   /* ---- change-detail drawer ---- */
-  const TYPE={add:{g:'＋',c:'add',label:'新增页面'},del:{g:'－',c:'del',label:'删减页面'},mod:{g:'±',c:'mod',label:'内容修改'}};
+  const TYPE={add:{g:'＋',c:'add',label:'新增页面'},del:{g:'－',c:'del',label:'移出 Sitemap'},mod:{g:'±',c:'mod',label:'内容修改'}};
   const DETAILS={
     'vercel-pricing':{site:'Vercel',path:'/pricing',type:'mod',title:'Pro 套餐价格上调',pinned:true,
       meta:[['检测时间','2026/6/9 02:14'],['HTTP 状态','200 OK'],['lastmod','06-08 → 06-09'],['正文字数','1,240 → 1,268']],
@@ -757,7 +757,7 @@
       body+='<div class="newpage"><div class="pt">'+d.newpage.title+'</div><div class="pd">'+d.newpage.desc+'</div><div class="url2">'+d.newpage.url+'</div></div>';
     }
     if(d.gone){
-      body+='<div class="dh">最后已知快照 <span class="line"></span><span class="tag del">删减页面</span></div>';
+      body+='<div class="dh">Sitemap 状态 <span class="line"></span><span class="tag del">移出 Sitemap</span></div>';
       body+='<div class="newpage"><div class="pt">'+d.gone.title+'</div><div class="pd">'+d.gone.desc+'</div><div class="url2">'+d.gone.url+'</div></div>';
     }
     let acts='<button class="btn '+(d.suspected?'btn-soft':'btn-primary')+'"><svg class="xic" viewBox="0 0 8 8"><rect x="3" y="0" width="4" height="1"/><rect x="6" y="0" width="1" height="4"/><rect x="1" y="6" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/></svg> 在浏览器打开</button>';

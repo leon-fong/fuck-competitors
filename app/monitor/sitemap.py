@@ -73,7 +73,7 @@ def _maybe_gunzip(content: bytes, url: str) -> bytes:
 def fetch_all_pages(
     sitemap_url: str,
     *,
-    timeout: int = 20,
+    timeout: int = 15,
     max_urls: int = 50_000,
 ) -> list[PageEntry]:
     """Fetch a sitemap, following sitemap-index -> child sitemaps, and return all pages."""
