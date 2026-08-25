@@ -19,19 +19,35 @@
   </div>
 
   {% elif mode == 'diff' %}
+  {% if seo_changes %}
+  <div class="dh">SEO changes <span class="line"></span><span class="tag mod">{{ importance_label }} · {{ importance_score }}</span></div>
+  <div class="difffull">
+    {% for field, values in seo_changes.items() %}
+    <div class="row hunk"><span class="mk"></span><span>{{ field|replace('_', ' ')|title }}</span></div>
+    <div class="row del"><span class="mk">−</span><span>{{ values['from'] if values['from'] is not none else '—' }}</span></div>
+    <div class="row add"><span class="mk">+</span><span>{{ values['to'] if values['to'] is not none else '—' }}</span></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if content_changed %}
   <div class="dh">逐行对比 <span class="line"></span><span class="tag mod">内容修改</span></div>
   {% if hunks %}
   <div class="difffull">
     {% for r in hunks %}<div class="row {{ r.t }}"><span class="mk">{% if r.t == 'add' %}+{% elif r.t == 'del' %}−{% elif r.t == 'hunk' %}{% else %} {% endif %}</span><span>{{ r.x }}</span></div>{% endfor %}
   </div>
   {% else %}<p class="empty-soft">内容已变化，但未生成可读 diff。</p>{% endif %}
+  {% endif %}
 
   {% elif mode == 'newpage' %}
   <div class="dh">页面快照 <span class="line"></span><span class="tag add">新增页面</span></div>
   <div class="newpage"><div class="pt">{{ snapshot.title }}</div><div class="url2">{{ snapshot.url }}</div></div>
 
   {% elif mode == 'gone' %}
-  <div class="dh">最后已知 <span class="line"></span><span class="tag del">删减页面</span></div>
+  <div class="dh">Sitemap 状态 <span class="line"></span><span class="tag del">移出 Sitemap</span></div>
+  <div class="newpage"><div class="pt">{{ snapshot.title }}</div><div class="url2">{{ snapshot.url }}</div></div>
+
+  {% elif mode == 'restored' %}
+  <div class="dh">Sitemap 状态 <span class="line"></span><span class="tag add">重新加入</span></div>
   <div class="newpage"><div class="pt">{{ snapshot.title }}</div><div class="url2">{{ snapshot.url }}</div></div>
   {% endif %}
 

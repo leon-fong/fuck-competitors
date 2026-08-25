@@ -6,8 +6,8 @@ and back off when a site pushes back (429/403). That politeness is what keeps a 
 SaaS crawl from getting the server's IP blocked.
 
 State (robots cache, per-host next-allowed time, per-host cooldowns) lives in module-level
-dicts behind a lock. The app runs a single worker, but APScheduler fires competitor checks on
-background threads, so several hosts — and occasionally the same host — can be in flight at once.
+dicts behind a lock. APScheduler is configured with one global crawl worker; the lock also
+keeps these helpers safe when called from web-triggered or test code.
 """
 from __future__ import annotations
 
@@ -29,6 +29,10 @@ DEFAULT_HEADERS = {
 
 class Blocked(Exception):
     """A host must not be fetched right now: robots disallow, an active cooldown, or a 403/429."""
+
+    def __init__(self, message: str, *, response: httpx.Response | None = None):
+        super().__init__(message)
+        self.response = response
 
 
 _lock = threading.Lock()
@@ -120,8 +124,8 @@ def polite_get(client: httpx.Client, url: str, *, conditional: dict | None = Non
     if resp.status_code == 429:
         cooldown = _retry_after_seconds(resp.headers.get("Retry-After")) or settings.block_cooldown_seconds
         _start_cooldown(host, cooldown)
-        raise Blocked(f"429 Too Many Requests from {host}")
+        raise Blocked(f"429 Too Many Requests from {host}", response=resp)
     if resp.status_code == 403:
         _start_cooldown(host, settings.block_cooldown_seconds)
-        raise Blocked(f"403 Forbidden from {host}")
+        raise Blocked(f"403 Forbidden from {host}", response=resp)
     return resp

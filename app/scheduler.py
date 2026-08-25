@@ -6,6 +6,7 @@ uvicorn worker — multiple workers would each start a scheduler and double-fire
 """
 from __future__ import annotations
 
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlmodel import Session, select
 
@@ -13,7 +14,9 @@ from .db import engine
 from .models import Competitor
 from .service import run_check
 
-scheduler = BackgroundScheduler()
+# One global crawl worker serializes all scheduled and manual checks. This keeps memory and
+# SQLite writer pressure predictable on the target 2-vCPU / 2-GB VPS.
+scheduler = BackgroundScheduler(executors={"default": ThreadPoolExecutor(max_workers=1)})
 
 
 def _job(competitor_id: int) -> None:

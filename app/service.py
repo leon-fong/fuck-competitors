@@ -10,16 +10,22 @@ from .monitor.basic import diff_pages
 from .monitor.detailed import check_page_content
 from .monitor.favicon import resolve_favicon
 from .monitor.sitemap import fetch_all_pages
+from .monitor.urlnorm import normalize_url
 from .timeutil import utcnow
 
 
 def run_basic_check(session: Session, competitor: Competitor) -> dict:
-    """Sitemap diff: add / remove / suspected. Mutates the session; caller commits."""
+    """Sitemap diff: add / remove / restore / suspected. Mutates and commits the session."""
     pages = session.exec(
-        select(Page).where(Page.competitor_id == competitor.id, Page.status == "active")
+        select(Page).where(Page.competitor_id == competitor.id)
     ).all()
-    page_by_url = {p.url: p for p in pages}
-    old = {p.url: p.lastmod for p in pages}
+    page_by_normalized = {normalize_url(p.url): p for p in pages}
+    active_by_normalized = {
+        normalized: page
+        for normalized, page in page_by_normalized.items()
+        if page.status == "active"
+    }
+    old = {p.url: p.lastmod for p in active_by_normalized.values()}
 
     try:
         entries = fetch_all_pages(
@@ -31,9 +37,17 @@ def run_basic_check(session: Session, competitor: Competitor) -> dict:
         competitor.status = "error"
         session.add(competitor)
         session.commit()
-        return {"error": str(exc), "added": 0, "removed": 0, "suspected": 0}
+        return {
+            "error": str(exc),
+            "added": 0,
+            "sitemap_removed": 0,
+            "restored": 0,
+            "suspected": 0,
+        }
 
-    new_lastmod = {e.loc: e.lastmod for e in entries}
+    entry_by_normalized = {}
+    for entry in entries:
+        entry_by_normalized.setdefault(normalize_url(entry.loc), entry)
     now = utcnow()
     changes = diff_pages(old, entries)
 
@@ -41,7 +55,7 @@ def run_basic_check(session: Session, competitor: Competitor) -> dict:
     # journal with one "added" entry per page — there's no change signal in the initial
     # inventory. Real adds/removes/edits get logged from the second crawl onward.
     is_baseline = competitor.last_checked_at is None
-    logged = {"added": 0, "removed": 0, "suspected": 0}
+    logged = {"added": 0, "sitemap_removed": 0, "restored": 0, "suspected": 0}
 
     # Commit in batches so a big baseline (tens of thousands of pages) never holds the write
     # lock for the whole bulk insert — otherwise a concurrent "add competitor" gets stuck and
@@ -56,37 +70,77 @@ def run_basic_check(session: Session, competitor: Competitor) -> dict:
             pending = 0
 
     for change in changes:
+        normalized = normalize_url(change.url)
+        entry = entry_by_normalized.get(normalized)
         if change.type == "added":
-            page = Page(competitor_id=competitor.id, url=change.url, lastmod=new_lastmod.get(change.url))
+            page = page_by_normalized.get(normalized)
+            if page is not None and page.status == "sitemap_removed":
+                page.status = "active"
+                page.lastmod = entry.lastmod if entry else None
+                page.last_seen_at = now
+                page.needs_detail_check = True
+                session.add(page)
+                session.add(
+                    Change(
+                        competitor_id=competitor.id,
+                        page_id=page.id,
+                        type="restored",
+                        detail={"importance_score": 25},
+                    )
+                )
+                logged["restored"] += 1
+            else:
+                page = Page(
+                    competitor_id=competitor.id,
+                    url=entry.loc if entry else change.url,
+                    lastmod=entry.lastmod if entry else None,
+                    needs_detail_check=True,
+                )
+                session.add(page)
+                session.flush()
+                page_by_normalized[normalized] = page
+                if not is_baseline:
+                    session.add(
+                        Change(
+                            competitor_id=competitor.id,
+                            page_id=page.id,
+                            type="added",
+                            detail={"importance_score": 20},
+                        )
+                    )
+                    logged["added"] += 1
+        elif change.type == "sitemap_removed":
+            page = active_by_normalized[normalized]
+            page.status = "sitemap_removed"
             session.add(page)
-            session.flush()
-            if not is_baseline:
-                session.add(Change(competitor_id=competitor.id, page_id=page.id, type="added"))
-                logged["added"] += 1
-        elif change.type == "removed":
-            page = page_by_url[change.url]
-            page.status = "removed"
-            session.add(page)
-            session.add(Change(competitor_id=competitor.id, page_id=page.id, type="removed"))
-            logged["removed"] += 1
+            session.add(
+                Change(
+                    competitor_id=competitor.id,
+                    page_id=page.id,
+                    type="sitemap_removed",
+                    detail={"importance_score": 20},
+                )
+            )
+            logged["sitemap_removed"] += 1
         elif change.type == "suspected":
-            page = page_by_url[change.url]
-            page.lastmod = new_lastmod.get(change.url)
+            page = active_by_normalized[normalized]
+            page.lastmod = entry.lastmod if entry else None
+            page.needs_detail_check = True
             session.add(page)
             session.add(
                 Change(
                     competitor_id=competitor.id,
                     page_id=page.id,
                     type="suspected",
-                    detail=change.detail,
+                    detail={**change.detail, "importance_score": 5},
                 )
             )
             logged["suspected"] += 1
         pending += 1
         commit_if_full()
 
-    for url, page in page_by_url.items():
-        if url in new_lastmod:
+    for normalized, page in page_by_normalized.items():
+        if normalized in entry_by_normalized and page.status == "active":
             page.last_seen_at = now
             session.add(page)
             pending += 1
@@ -102,15 +156,27 @@ def run_basic_check(session: Session, competitor: Competitor) -> dict:
     return {"baseline": is_baseline, "tracked": len(entries), **logged}
 
 
+def select_detailed_pages(session: Session, competitor_id: int, limit: int) -> list[Page]:
+    """Select one rotating, priority-first detailed-crawl batch directly in SQL."""
+    return list(
+        session.exec(
+            select(Page)
+            .where(Page.competitor_id == competitor_id, Page.status == "active")
+            .order_by(
+                Page.needs_detail_check.desc(),
+                Page.last_detailed_at.asc(),
+                Page.id.asc(),
+            )
+            .limit(max(0, limit))
+        ).all()
+    )
+
+
 def run_detailed_check(session: Session, competitor: Competitor) -> int:
-    """Content-diff every active page (capped). Returns number of modified pages."""
+    """Content-diff one priority/rotation batch. Returns number of modified pages."""
     from .monitor import fetch  # lazy: keep httpx out of service's import path
 
-    pages = session.exec(
-        select(Page).where(Page.competitor_id == competitor.id, Page.status == "active")
-    ).all()
-    if len(pages) > settings.detailed_max_pages:
-        pages = pages[: settings.detailed_max_pages]
+    pages = select_detailed_pages(session, competitor.id, settings.detailed_max_pages)
     modified = 0
     # One client for the whole run so connections (and per-host rate limiting) are reused
     # across pages instead of a fresh TCP/TLS handshake per page.
@@ -118,6 +184,12 @@ def run_detailed_check(session: Session, competitor: Competitor) -> int:
         for page in pages:
             if check_page_content(session, page, client) is not None:
                 modified += 1
+            # Every attempt rotates to the back, including temporary failures. Successful
+            # responses and 304s are therefore cleared as required, while failed pages still
+            # come around again after the rest of the inventory gets a turn.
+            page.last_detailed_at = utcnow()
+            page.needs_detail_check = False
+            session.add(page)
             session.commit()  # release the write lock between (network-bound) page checks
     return modified
 

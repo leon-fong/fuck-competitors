@@ -44,6 +44,14 @@ def _migrate() -> None:
         ("competitor", "favicon_url", "VARCHAR"),
         ("page", "etag", "VARCHAR"),
         ("page", "last_modified", "VARCHAR"),
+        ("page", "last_detailed_at", "DATETIME"),
+        ("page", "needs_detail_check", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("snapshot", "meta_description", "VARCHAR"),
+        ("snapshot", "h1", "VARCHAR"),
+        ("snapshot", "canonical", "VARCHAR"),
+        ("snapshot", "robots", "VARCHAR"),
+        ("snapshot", "status_code", "INTEGER"),
+        ("snapshot", "final_url", "VARCHAR"),
     ]
     with engine.connect() as conn:
         for table, column, coltype in additions:
@@ -52,3 +60,11 @@ def _migrate() -> None:
                 conn.commit()
             except Exception:
                 conn.rollback()  # column already exists — fine
+
+        # Milestone 1 narrows "removed" to the truthful sitemap lifecycle meaning.
+        # Updating old rows preserves their history while bringing existing databases
+        # onto the same vocabulary as newly recorded events.
+        conn.exec_driver_sql("UPDATE page SET status = 'sitemap_removed' WHERE status = 'removed'")
+        conn.exec_driver_sql("UPDATE change SET type = 'sitemap_removed' WHERE type = 'removed'")
+        conn.exec_driver_sql("UPDATE page SET needs_detail_check = 0 WHERE needs_detail_check IS NULL")
+        conn.commit()

@@ -8,13 +8,14 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/app.db"
     default_interval_hours: int = 24
     user_agent: str = "FuckCompetitors/0.1 (+https://github.com/tod-zhang/fuck-competitors)"
-    request_timeout: int = 20
+    request_timeout: int = 15
     respect_robots: bool = True    # obey robots.txt; turn off only if a target's robots wrongly blocks its sitemap
     crawl_delay_seconds: float = 1.0   # min spacing between requests to the same host (robots Crawl-delay can raise it)
     block_cooldown_seconds: int = 900  # after a 403 / 429-without-Retry-After, skip that host for this long
     max_sitemap_urls: int = 50_000
-    snapshot_retention: int = 10  # detailed-monitoring snapshots kept per page
-    detailed_max_pages: int = 500  # cap pages content-diffed per detailed crawl (safety for huge sites)
+    snapshot_retention: int = 5  # detailed-monitoring snapshots kept per page
+    detailed_max_pages: int = 100  # cap pages content-diffed per detailed crawl (safety for huge sites)
+    max_content_chars: int = 100_000  # bound stored text, hashes, and diff memory per snapshot
     write_batch: int = 200  # commit crawl writes every N rows so the write lock is released often
 
     model_config = SettingsConfigDict(env_prefix="FC_", env_file=".env", extra="ignore")

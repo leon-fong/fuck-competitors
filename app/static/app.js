@@ -11,6 +11,7 @@ document.querySelectorAll('.nav a[data-view]').forEach(a => {
 
 // competitor filter is driven by the sidebar (no competitor chips in the bar); held here.
 let currentComp = null;
+let currentImportance = 'all';
 
 // reset the changelog filters to "all competitors + all types"
 function resetTimelineFilter() {
@@ -18,6 +19,10 @@ function resetTimelineFilter() {
   const scope = document.getElementById('tlScope');
   if (scope) scope.textContent = '全部';
   document.querySelectorAll('#view-timeline .fchip[data-type]').forEach(c => c.classList.add('on'));
+  currentImportance = 'all';
+  document.querySelectorAll('#view-timeline .fchip[data-importance]').forEach(c => {
+    c.classList.toggle('on', c.dataset.importance === 'all');
+  });
   applyTimelineFilter();
 }
 
@@ -33,7 +38,8 @@ function applyTimelineFilter() {
     const compOk = !comp || e.dataset.comp === comp;
     let anyRow = false;
     e.querySelectorAll('.change').forEach(row => {
-      const show = compOk && types.has(row.dataset.cat);
+      const importanceOk = currentImportance === 'all' || row.dataset.importance === currentImportance;
+      const show = compOk && types.has(row.dataset.cat) && importanceOk;
       row.style.display = show ? '' : 'none';
       if (show) anyRow = true;
     });
@@ -64,6 +70,11 @@ function filterCompetitor(name) {
 // change-type chips toggle which types are shown
 document.querySelectorAll('.fchip[data-type]').forEach(c => c.addEventListener('click', () => {
   c.classList.toggle('on');
+  applyTimelineFilter();
+}));
+document.querySelectorAll('.fchip[data-importance]').forEach(c => c.addEventListener('click', () => {
+  currentImportance = c.dataset.importance;
+  document.querySelectorAll('.fchip[data-importance]').forEach(x => x.classList.toggle('on', x === c));
   applyTimelineFilter();
 }));
 

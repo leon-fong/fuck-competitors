@@ -30,7 +30,8 @@
     <span class="name">{{ entry.name }}</span><span class="url">/sitemap.xml</span>
     <span class="summary-tags">
       {% if entry.summary.added %}<span class="tag add" data-cat="add">＋{{ entry.summary.added }}</span>{% endif %}
-      {% if entry.summary.removed %}<span class="tag del" data-cat="del">－{{ entry.summary.removed }}</span>{% endif %}
+      {% if entry.summary.sitemap_removed %}<span class="tag del" data-cat="del">－{{ entry.summary.sitemap_removed }}</span>{% endif %}
+      {% if entry.summary.restored %}<span class="tag add" data-cat="add">↺{{ entry.summary.restored }}</span>{% endif %}
       {% if entry.summary.modified %}<span class="tag mod" data-cat="mod">±{{ entry.summary.modified }}</span>{% endif %}
       {% if entry.summary.suspected %}<span class="tag susp" data-cat="mod">± 疑似 {{ entry.summary.suspected }}</span>{% endif %}
     </span>
@@ -39,9 +40,12 @@
   <div class="changes">
     {% for r in entry.rows %}
     {% set cat = 'mod' if r.gtype in ['mod', 'susp'] else r.gtype %}
-    <div class="change clickable{% if r.type == 'removed' %} del{% endif %}" data-cat="{{ cat }}" onclick="openDetail({{ r.id }})">
+    <div class="change clickable{% if r.type == 'sitemap_removed' %} del{% endif %}" data-cat="{{ cat }}" data-importance="{{ r.importance_band }}" onclick="openDetail({{ r.id }})">
       <span class="gly {{ r.gtype }}">{{ r.glyph }}</span>
-      <div><span class="path">{{ r.path }}</span>{% if r.note %} <span class="note">{{ r.note }}</span>{% endif %}</div>
+      <div class="change-copy">
+        <div><span class="path">{{ r.path }}</span> <span class="note impact {{ r.importance_band }}">{{ r.importance_label }} · {{ r.importance_score }}</span>{% if r.note %} <span class="note">· {{ r.note }}</span>{% endif %}</div>
+        {% if r.seo_badges %}<div class="change-badges">{% for badge in r.seo_badges %}<span>{{ badge }}</span>{% endfor %}</div>{% endif %}
+      </div>
       <span class="chev">›</span>
     </div>
     {% endfor %}
@@ -91,7 +95,7 @@
         <div class="ob-tape"></div>
         <div class="ob-eyes pixel-eyes">{{ eyes() }}</div>
         <h2>开始 <span class="hl">盯死</span> 你的对手</h2>
-        <p class="lead">填入竞品的 sitemap 地址，<b>Fuck Competitors</b> 会定期巡检，把它网站上每一次页面的<b>新增</b>、<b>删减</b>、<b>修改</b>都记成一篇日志——像写观察日记一样，看懂对手的每一步动作。</p>
+        <p class="lead">填入竞品的 sitemap 地址，<b>Fuck Competitors</b> 会定期巡检，把页面的<b>新增</b>、<b>移出 / 恢复</b>和<b>修改</b>记成日志——像写观察日记一样，看懂对手的每一步动作。</p>
         <div class="ob-quick">
           <input placeholder="https://competitor.com/sitemap.xml" readonly onclick="document.body.classList.remove('first-run');openModal()">
           <button class="btn btn-primary" onclick="document.body.classList.remove('first-run');openModal()">开始监控 →</button>
@@ -99,7 +103,7 @@
       </div>
       <div class="ob-features">
         <div class="ob-feat"><div class="fi" style="background:var(--add-bg);color:var(--add)">＋</div><h4>捕捉新增</h4><p>竞品上线新页面（新品、新案例、新博客）第一时间记录。</p></div>
-        <div class="ob-feat"><div class="fi" style="background:var(--del-bg);color:var(--del)">－</div><h4>追踪删减</h4><p>页面悄悄下线，往往是产品线调整或策略转向的信号。</p></div>
+        <div class="ob-feat"><div class="fi" style="background:var(--del-bg);color:var(--del)">－</div><h4>追踪移出</h4><p>URL 从 Sitemap 移出或重新加入时及时记录，不把 Sitemap 变化误报成页面下线。</p></div>
         <div class="ob-feat"><div class="fi" style="background:var(--mod-bg);color:var(--mod)">±</div><h4>内容变化</h4><p>基础监控提示「疑似修改」；开启详细监控看定价、文案的逐行 diff。</p></div>
       </div>
     </section>
@@ -119,7 +123,7 @@
     <section class="view show" id="view-overview">
       <div class="stats">
         <div class="stat c-add"><div class="tape" style="background:repeating-linear-gradient(45deg,#B7D9B4 0 6px,#D6ECD3 6px 12px)"></div><div class="num">{{ stats.added }}</div><div class="lab">新增页面 <span class="trend" style="background:var(--add-bg);color:var(--add)">近 7 天</span></div></div>
-        <div class="stat c-del"><div class="tape" style="background:repeating-linear-gradient(45deg,#E8BCAE 0 6px,#F3D9CF 6px 12px)"></div><div class="num">{{ stats.removed }}</div><div class="lab">删减页面 <span class="trend" style="background:var(--del-bg);color:var(--del)">近 7 天</span></div></div>
+        <div class="stat c-del"><div class="tape" style="background:repeating-linear-gradient(45deg,#E8BCAE 0 6px,#F3D9CF 6px 12px)"></div><div class="num">{{ stats.removed }}</div><div class="lab">移出 Sitemap <span class="trend" style="background:var(--del-bg);color:var(--del)">近 7 天</span></div></div>
         <div class="stat c-mod"><div class="tape" style="background:repeating-linear-gradient(45deg,#EBD49E 0 6px,#F4E6C2 6px 12px)"></div><div class="num">{{ stats.modified }}</div><div class="lab">内容修改 <span class="trend" style="background:var(--mod-bg);color:var(--mod)">含疑似</span></div></div>
         <div class="stat c-site"><div class="tape" style="background:repeating-linear-gradient(45deg,#B9C2DA 0 6px,#D9DEEC 6px 12px)"></div><div class="num">{{ stats.sites }}</div><div class="lab">监控站点 <span class="trend" style="background:var(--accent-bg);color:var(--accent)">{{ stats.pages }} 页</span></div></div>
       </div>
@@ -140,8 +144,14 @@
       <div class="sec-head"><h3>变更日志 · <span id="tlScope">全部</span></h3><span class="ribbon">~ 按时间倒序 ~</span><span class="line"></span></div>
       <div class="filterbar">
         <span class="fchip on" data-type="add">＋ 新增</span>
-        <span class="fchip on" data-type="del">－ 删减</span>
+        <span class="fchip on" data-type="del">－ 移出 Sitemap</span>
         <span class="fchip on" data-type="mod">± 修改</span>
+        <span class="filter-label">重要程度</span>
+        <span class="fchip on" data-importance="all">全部</span>
+        <span class="fchip" data-importance="critical">Critical</span>
+        <span class="fchip" data-importance="high">High</span>
+        <span class="fchip" data-importance="medium">Medium</span>
+        <span class="fchip" data-importance="low">Low</span>
       </div>
       {% for g in timeline_groups %}
       <div class="day-group">
@@ -170,10 +180,11 @@
           <div class="meta">
             <div><div class="k">追踪页面</div><div class="v">{{ s.tracked }}</div></div>
             <div><div class="k">近 7 天变更</div><div class="v" style="color:var(--accent)">{{ s.week_changes }}</div></div>
+            <div><div class="k">高影响变更</div><div class="v" style="color:var(--mod)">{{ s.week_high_impact }}</div></div>
           </div>
           <form method="post" action="/competitors/{{ s.id }}/detailed" class="card-foot">
             <span class="lvl {{ 'deep' if s.detailed else 'basic' }}">{{ '详细监控' if s.detailed else '基础监控' }}</span>
-            <span>{{ '抓取全部页面正文、逐行对比' if s.detailed else '仅 sitemap 增删' }}</span>
+            <span>{{ '抓取全部页面正文与 SEO 字段' if s.detailed else '仅 Sitemap 生命周期' }}</span>
             <label class="switch"><input type="checkbox" name="on" {% if s.detailed %}checked{% endif %} onchange="this.form.submit()"><span class="track"></span></label>
           </form>
         </div>
@@ -204,12 +215,12 @@
       <div class="field"><label>巡检频率</label>
         <div class="xselect">
           <button type="button" class="xselect-trigger">
-            <span class="xselect-label">每天</span><span class="xselect-caret">▾</span>
+            <span class="xselect-label">{{ default_interval_label }}</span><span class="xselect-caret">▾</span>
           </button>
-          <input type="hidden" name="interval_hours" value="24">
+          <input type="hidden" name="interval_hours" value="{{ default_interval_hours }}">
           <ul class="xselect-menu" role="listbox">
-            <li data-value="24" class="sel">每天</li>
-            <li data-value="168">每周</li>
+            <li data-value="24"{% if default_interval_hours == 24 %} class="sel"{% endif %}>每天</li>
+            <li data-value="168"{% if default_interval_hours == 168 %} class="sel"{% endif %}>每周</li>
           </ul>
         </div>
       </div>
@@ -217,7 +228,7 @@
         <div class="toggle-card">
           <div style="flex:1">
             <div class="t">详细内容监控 <span class="lvl deep" style="margin-left:4px">可选</span></div>
-            <div class="d">基础监控（默认）：检测页面新增 / 删减，并在 sitemap 带 <code style="background:#F3EEE2;padding:0 4px;border-radius:4px">lastmod</code> 时提示「疑似修改」。开启后抓取正文，逐行对比定价、文案等<b>具体</b>改动。可稍后对单个竞品开启。</div>
+            <div class="d">基础监控（默认）：检测 URL 加入、移出或恢复，并在 sitemap 带 <code style="background:#F3EEE2;padding:0 4px;border-radius:4px">lastmod</code> 时提示「疑似修改」。开启后从同一次 HTML 下载中对比正文、Title、Description、H1、Canonical、Robots、HTTP 状态和最终 URL。可稍后对单个竞品开启。</div>
           </div>
           <label class="switch"><input type="checkbox" name="detailed"><span class="track"></span></label>
         </div>
