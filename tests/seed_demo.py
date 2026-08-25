@@ -62,7 +62,7 @@ def main():
         s.commit()
 
         # Vercel — today: 3 added + 1 modified (pricing, content diff)
-        for path, when in [("/blog/ship-ai-agents-faster", TODAY), ("/customers/openai", TODAY), ("/templates/ai-chatbot", TODAY)]:
+        for path, when in [("/blog/ship-apps-faster", TODAY), ("/customers/acme", TODAY), ("/templates/team-dashboard", TODAY)]:
             change(vercel, page(vercel, path), "added", when)
         v_pricing = page(vercel, "/pricing")
         old = "Pro 套餐 · $20 / 每位成员 / 月\n无限项目 · 高级分析"
@@ -80,7 +80,7 @@ def main():
         # Figma — yesterday: hero modified + pricing modified + blog added
         f_home = page(figma, "/")
         change(figma, f_home, "modified", Yday.replace(hour=19, minute=27),
-               {"title": "Figma", "hunks": make_hunks("Nothing great is made alone", "Design and build, powered by AI")})
+               {"title": "Figma", "hunks": make_hunks("Nothing great is made alone", "Design and build together")})
         change(figma, page(figma, "/pricing"), "modified", Yday.replace(hour=19, minute=20), {"title": "Pricing"})
         change(figma, page(figma, "/blog/config-2026-recap"), "added", Yday.replace(hour=18, minute=0))
 

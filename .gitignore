@@ -5,7 +5,4 @@ venv/
 data/
 .env
 .DS_Store
-.claude/
-
 AGENTS.md
-CLAUDE.md
